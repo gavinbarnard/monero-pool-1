@@ -123,6 +123,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   Properties
   ----------
   name <-> value
+
+  Bans
+  -------
+  wallet addr <-> epoch_date
 */
 
 enum block_status { BLOCK_LOCKED, BLOCK_UNLOCKED, BLOCK_ORPHANED };

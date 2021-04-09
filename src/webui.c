@@ -99,7 +99,7 @@ fetch_real_ip(struct evhttp_request *req)
 
         location ~ /operator/(?<oppath>(\w+)) {
                 proxy_set_header X-Real-IP $remote_addr;
-                proxy_pass http://localhost:4243:/operator/$oppath;
+                proxy_pass http://localhost:4243/operator/$oppath;
         }
 
         ...
@@ -203,6 +203,8 @@ perform_auth(struct evhttp_request *req, void *arg)
                                     NULL,
                                     &servercredp
                                 );
+                                memset(bv_pass.bv_val, 0, bv_pass.bv_len);
+                                memset(pass, 0, 63);
                                 if (ld_result == LDAP_SUCCESS)
                                 {
                                     authenticated = true;

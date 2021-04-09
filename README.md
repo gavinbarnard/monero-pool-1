@@ -49,12 +49,13 @@ to build the pool:
 - libevent
 - json-c
 - uuid
+- libldap2
 
 As an example, on Ubuntu, these dependencies can be installed with the following
 command:
 
 ```
-sudo apt-get install liblmdb-dev libevent-dev libjson-c-dev uuid-dev
+sudo apt-get install liblmdb-dev libevent-dev libjson-c-dev uuid-dev libldap2-dev
 ```
 ### Compile
 
@@ -175,6 +176,43 @@ access to the pool's wallet, only the final upstream needs wallet access. If
 Stratum mode self-select is being offered, the pool wallet view key can be set
 in the downstream pool config files via the `pool-view-key` parameter, or by
 running a local view-only wallet RPC.
+
+### Trusted Operator API
+
+Requires receiving the X-Real-IP header from load balancer.
+nginx Example below
+
+    server {
+        
+        ...
+        
+        set_real_ip_from 0.0.0.0/0;
+        real_ip_header X-Real-IP;
+        real_ip_recursive on;
+        
+        ...
+
+        location /operator {
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_pass http://localhost:4243/operator;
+        }
+        location ~ /operator/(?<oppath>(\w+)) {
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_pass http://localhost:4243/operator/$oppath;
+        }
+
+        ...
+    }
+
+Requires a reachable LDAP server. Pool will validate operator requests come 
+from the specific trusted-operator-host.  Authentication won't be passed unless
+the userdn provided matches trusted-ldap-base-dn
+
+    trusted-operator-host = x.y.a.b
+    trusted-ldap = ldap://ldap.domain.fqdn
+    trusted-ldap-base-dn = DC=domain,DC=fqdn
+
+Only use these APIs with the pool behind an SSL front end load balancer.
 
 ## Running
 
