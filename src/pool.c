@@ -70,7 +70,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "uthash.h"
 #include "pool.h"
 
-#define MAX_LINE 8192
 #define CLIENTS_INIT 8192
 #define RPC_BODY_MAX 65536
 #define JOB_BODY_MAX 8192
@@ -87,7 +86,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DB_COUNT_MAX 10
 #define MAX_PATH 1024
 #define RPC_PATH "/json_rpc"
-#define ADDRESS_MAX 128
 #define BLOCK_TIME 120
 #define HR_BLOCK_COUNT 5
 #define TEMLATE_HEIGHT_VARIANCE 5
@@ -179,6 +177,10 @@ typedef struct config_t
     char trusted_listen[MAX_HOST];
     uint16_t trusted_port;
     char trusted_allowed[MAX_DOWNSTREAM][MAX_HOST];
+    char trusted_operator_host[MAX_HOST];
+    char trusted_ldap[MAX_HOST];
+    char trusted_ldap_base_dn[MAX_LINE];
+    uint16_t trusted_ldap_port;
     char upstream_host[MAX_HOST];
     uint16_t upstream_port;
     char pool_view_key[64];
@@ -4067,6 +4069,22 @@ read_config(const char *config_file)
             }
             free(temp);
         }
+        else if (strcmp(key, "trusted-operator-host") == 0)
+        {
+            strncpy(config.trusted_operator_host, val, sizeof(config.trusted_operator_host)-1);
+        }
+        else if (strcmp(key, "trusted-ldap") == 0)
+        {
+            strncpy(config.trusted_ldap, val, sizeof(config.upstream_host)-1);
+        }
+        else if (strcmp(key, "trusted-ldap-base-dn") == 0)
+        {
+            strncpy(config.trusted_ldap_base_dn, val, sizeof(config.trusted_ldap_base_dn)-1);
+        }
+        else if (strcmp(key, "trusted-ldap-port") == 0)
+        {
+            config.trusted_ldap_port = atoi(val);
+        }
         else if (strcmp(key, "upstream-host") == 0)
         {
             strncpy(config.upstream_host, val, sizeof(config.upstream_host)-1);
@@ -4675,6 +4693,10 @@ int main(int argc, char **argv)
     uic.pool_ssl_port = config.pool_ssl_port;
     uic.allow_self_select = !config.disable_self_select;
     uic.payment_threshold = config.payment_threshold;
+    strncpy(uic.trusted_operator_host, config.trusted_operator_host, sizeof(uic.trusted_operator_host)-1);
+    strncpy(uic.trusted_ldap, config.trusted_ldap, sizeof(uic.trusted_ldap)-1);
+    strncpy(uic.trusted_ldap_base_dn, config.trusted_ldap_base_dn, sizeof(uic.trusted_ldap_base_dn)-1);
+    uic.trusted_ldap_port = config.trusted_ldap_port;
     if (config.webui_port)
         start_web_ui(&uic);
 

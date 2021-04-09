@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include <pthread.h>
 
@@ -43,6 +44,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <event2/buffer.h>
 #include <event2/http.h>
 #include <event2/listener.h>
+
+#include <ldap.h>
 
 #include "log.h"
 #include "pool.h"
@@ -77,12 +80,113 @@ fetch_wa_cookie(struct evhttp_request *req)
     return wa;
 }
 
+const char*
+fetch_real_ip(struct evhttp_request *req)
+{
+    /* this function only works when the service is behind a proxy
+    configured to send the X-Real-IP header see nginx example below
+    server {
+        
+        ...
+        
+        set_real_ip_from 0.0.0.0/0;
+        real_ip_header X-Real-IP;
+        real_ip_recursive on;
+        
+        ...
+
+        location ~ /operator/(?<oppath>(\w+)) {
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_pass http://localhost:4243:/operator/$oppath;
+        }
+
+        ...
+    }
+    */
+    struct evkeyvalq *hdrs_in = NULL;
+    hdrs_in = evhttp_request_get_input_headers(req);
+    const char *realip = evhttp_find_header(hdrs_in, "X-Real-IP");
+    if (realip)
+        return realip;
+    return NULL;
+}
+
+static void
+fetch_basic_auth(struct evhttp_request *req, char *userdn, char *pass)
+{
+    struct evkeyvalq *hdrs_in = NULL;
+    hdrs_in = evhttp_request_get_input_headers(req);
+    const char *bauth = evhttp_find_header(hdrs_in, "Authentication");
+    if (strstr(bauth, "Basic") != NULL)
+    {
+        // move the ptr fwd 
+        bauth += 6;
+        if (strstr(bauth, ':') != NULL)
+        {
+            // find the split
+            char *pass_pt = strstr(bauth, ":");
+            pass_pt += 1;
+            strncpy(pass, pass_pt, sizeof(pass));
+            pass_pt -= 1;
+            *pass_pt = 0;
+            strncpy(userdn, bauth, sizeof(userdn)-1);
+        }
+    }
+}
+
+bool 
+perform_auth(req, arg)
+{
+    wui_context_t *context = (wui_context_t*) arg;
+    LDAP *ld;
+    int ld_result = LDAP_SERVER_DOWN;
+    char userdn[1024] = {0};
+    char pass[63] = {0};
+
+    const char *real_ip = fetch_real_ip(req);
+    if (real_ip)
+    {
+        if (strstr(context->trusted_ldap_base_dn, userdn) != NULL)
+        {
+            if (strncmp(context->trusted_operator_host, real_ip, sizeof(context->trusted_operator_host)) == 0 )
+            {
+                fetch_basic_auth(req, userdn, pass);
+                if (userdn[0] != 0 && pass[0] != 0)
+                {
+                    ld = ldap_init(context->trusted_ldap, (int)context->trusted_ldap_port);
+                    ld_result = ldap_simple_bind_s(ld, userdn, pass);
+                    memset(userdn, 0, sizeof(userdn));
+                    memset(pass, 0, sizeof(pass));
+                    if (ld_result == LDAP_SUCCESS)
+                        return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 static void
 send_headers(struct evhttp_request *req, const char *contype)
 {
     struct evkeyvalq *hdrs_out = NULL;
     hdrs_out = evhttp_request_get_output_headers(req);
     evhttp_add_header(hdrs_out, "Content-Type", contype);
+}
+
+static void
+send_json_basic_auth(struct evhttp_request *req, bool authenticated)
+{
+    struct evbuffer *buf = evhttp_request_get_output_buffer(req);
+    send_headers(req, "application/json");
+    if (authenticated)
+    {
+        evbuffer_add_printf(buf, "{\"authenticated\": true}");
+        evhttp_send_reply(req, HTTP_OK, "OK", buf);
+    } else {
+        evbuffer_add_printf(buf, "{\"authenticated\": false}");
+        evhttp_send_reply(req, 403, "Forbidden", buf);
+    }
 }
 
 static void
@@ -203,6 +307,27 @@ process_request(struct evhttp_request *req, void *arg)
         strncpy(rig_id, uri_buffer, MAX_RIG_ID);
         send_json_worker(req, arg, rig_id);
         return;
+    }
+
+    if (strstr(url, "/operator/") != NULL)
+    {
+        char *uri_buffer = strstr(url, "/operator/");
+        bool authenticated = false;
+        uri_buffer += 10;
+        authenticated = perform_auth(req, arg);
+        if (uri_buffer == 0)
+        {
+            send_json_basic_auth(req, authenticated);
+        } 
+        else if (authenticated)
+        {
+            if (strstr(uri_buffer, "ban/"))
+            {
+                char wa[ADDRESS_MAX];
+                uri_buffer += 4;
+
+            }
+        }
     }
 
     buf = evhttp_request_get_output_buffer(req);

@@ -1,3 +1,4 @@
+
 /*
 Copyright (c) 2018, The Monero Project
 
@@ -29,42 +30,25 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef WEBUI_H
-#define WEBUI_H
+/* reference https://nachtimwald.com/2017/11/18/base64-encode-and-decode-in-c/ 
+*/
 
-#define MAX_LINE 8192
-#define MAX_HOST 256
+#include <stddef.h>
 
-typedef struct pool_stats_t
-{
-    uint64_t network_difficulty;
-    uint64_t network_hashrate;
-    uint64_t network_height;
-    uint32_t connected_accounts;
-    uint64_t pool_hashrate;
-    uint64_t round_hashes;
-    uint32_t pool_blocks_found;
-    time_t last_block_found;
-    time_t last_template_fetched;
-} pool_stats_t;
+#ifndef MP_BASE64_H
+#define MP_BASE64_H
 
-typedef struct wui_context_t
-{
-    char listen[256];
-    uint16_t port;
-    pool_stats_t *pool_stats;
-    double pool_fee;
-    double payment_threshold;
-    uint16_t pool_port;
-    uint16_t pool_ssl_port;
-    unsigned allow_self_select;
-    char trusted_operator_host[MAX_HOST];
-    char trusted_ldap[MAX_HOST];
-    char trusted_ldap_base_dn[MAX_LINE];
-    uint16_t trusted_ldap_port;
-} wui_context_t;
+const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+int b64invs[] = { 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58,
+	59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5,
+	6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+	21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28,
+	29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+	43, 44, 45, 46, 47, 48, 49, 50, 51 };
 
-int start_web_ui(wui_context_t *context);
-void stop_web_ui(void);
+size_t b64_decoded_size(const char *in);
+void b64_generate_decode_table();
+int b64_isvalidchar(char c);
+int b64_decode(const char *in, unsigned char *out, size_t outlen);
 
 #endif

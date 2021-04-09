@@ -32,7 +32,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef POOL_H
 #define POOL_H
 
+#define MAXLINE 8192
 #define MAX_RIG_ID 32
+#define ADDRESS_MAX 128
 
 void account_hr(double *avg, const char *address);
 void account_whr(double *avg, const char *address, const char *rig_id);
