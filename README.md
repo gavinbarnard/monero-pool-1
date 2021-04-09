@@ -214,6 +214,27 @@ the userdn provided matches trusted-ldap-base-dn
 
 Only use these APIs with the pool behind an SSL front end load balancer.
 
+Example usage:
+
+Verify login:
+
+curl -u "CN=user name,DC=domain,DC=fqdn:thepassword" https://ssl.fqdn.com/operator
+
+Check if a wallet is banned:
+
+curl -u "CN=user name,DC=domain,DC=fqdn:thepassword" \
+     https://ssl.fqdn.com/operator/ban/walletid
+
+Ban a wallet:
+
+curl -u "CN=user name,DC=domain,DC=fqdn:thepassword" -X PUT \
+     https://ssl.fqdn.com/operator/ban/walletid
+
+Unban a wallet:
+
+curl -u "CN=user name,DC=domain,DC=fqdn:thepassword" -X DELETE \
+     https://ssl.fqdn.com/operator/ban/walletid     
+
 ## Running
 
 Ensure you have your Monero daemon (`monerod`) and wallet RPC
