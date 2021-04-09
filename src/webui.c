@@ -78,10 +78,36 @@ fetch_wa_cookie(struct evhttp_request *req)
 }
 
 static void
+send_headers(struct evhttp_request *req, const char *contype)
+{
+    struct evkeyvalq *hdrs_out = NULL;
+    hdrs_out = evhttp_request_get_output_headers(req);
+    evhttp_add_header(hdrs_out, "Content-Type", contype);
+}
+
+static void
+send_json_worker(struct evhttp_request *req, void *arg, const char *rig_id)
+{
+    struct evbuffer *buf = evhttp_request_get_output_buffer(req);
+    double mh[6] = {0};
+    const char *wa = fetch_wa_cookie(req);
+    if (wa && sizeof(rig_id) != 0)
+        account_whr(mh, wa, rig_id);
+    evbuffer_add_printf(buf, "{"
+            "\"miner_hashrate_stats\":["
+            "%"PRIu64",%"PRIu64",%"PRIu64","
+            "%"PRIu64",%"PRIu64",%"PRIu64"]"
+            "}", 
+            (uint64_t)mh[0], (uint64_t)mh[1], (uint64_t)mh[2],
+            (uint64_t)mh[3], (uint64_t)mh[4], (uint64_t)mh[5]);
+    send_headers(req, "application/json");
+    evhttp_send_reply(req, HTTP_OK, "OK", buf);
+}
+
+static void
 send_json_workers(struct evhttp_request *req, void *arg)
 {
     struct evbuffer *buf = evhttp_request_get_output_buffer(req);
-    struct evkeyvalq *hdrs_out = NULL;
     char rig_list[0x100000] = {0};
     char *end_pt = rig_list + sizeof(rig_list);
     const char *wa = fetch_wa_cookie(req);
@@ -89,8 +115,7 @@ send_json_workers(struct evhttp_request *req, void *arg)
         account_rl(rig_list, end_pt, wa);
 
     evbuffer_add_printf(buf, "[%s]", rig_list);
-    hdrs_out = evhttp_request_get_output_headers(req);
-    evhttp_add_header(hdrs_out, "Content-Type", "application/json");
+    send_headers(req, "application/json");
     evhttp_send_reply(req, HTTP_OK, "OK", buf);
 }
 
@@ -99,7 +124,6 @@ send_json_stats(struct evhttp_request *req, void *arg)
 {
     struct evbuffer *buf = evhttp_request_get_output_buffer(req);
     wui_context_t *context = (wui_context_t*) arg;
-    struct evkeyvalq *hdrs_out = NULL;
     uint64_t ph = context->pool_stats->pool_hashrate;
     uint64_t nh = context->pool_stats->network_hashrate;
     uint64_t nd = context->pool_stats->network_difficulty;
@@ -149,8 +173,7 @@ send_json_stats(struct evhttp_request *req, void *arg)
             (uint64_t)mh[0],
             (uint64_t)mh[0], (uint64_t)mh[1], (uint64_t)mh[2],
             (uint64_t)mh[3], (uint64_t)mh[4], (uint64_t)mh[5], mb, wc);
-    hdrs_out = evhttp_request_get_output_headers(req);
-    evhttp_add_header(hdrs_out, "Content-Type", "application/json");
+    send_headers(req, "application/json");
     evhttp_send_reply(req, HTTP_OK, "OK", buf);
 }
 
@@ -159,7 +182,6 @@ process_request(struct evhttp_request *req, void *arg)
 {
     const char *url = evhttp_request_get_uri(req);
     struct evbuffer *buf = NULL;
-    struct evkeyvalq *hdrs_out = NULL;
 
     if (strstr(url, "/stats") != NULL)
     {
@@ -173,10 +195,19 @@ process_request(struct evhttp_request *req, void *arg)
         return;
     }
 
+    if (strstr(url, "/worker/") != NULL)
+    {
+        char rig_id[MAX_RIG_ID];
+        char *uri_buffer = strstr(url, "/worker/");
+        uri_buffer += 8;
+        strncpy(rig_id, uri_buffer, MAX_RIG_ID);
+        send_json_worker(req, arg, rig_id);
+        return;
+    }
+
     buf = evhttp_request_get_output_buffer(req);
     evbuffer_add(buf, webui_html, webui_html_len);
-    hdrs_out = evhttp_request_get_output_headers(req);
-    evhttp_add_header(hdrs_out, "Content-Type", "text/html");
+    send_headers(req, "text/html");
     evhttp_send_reply(req, HTTP_OK, "OK", buf);
 }
 
