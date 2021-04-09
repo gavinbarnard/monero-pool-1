@@ -179,8 +179,7 @@ typedef struct config_t
     char trusted_allowed[MAX_DOWNSTREAM][MAX_HOST];
     char trusted_operator_host[MAX_HOST];
     char trusted_ldap[MAX_HOST];
-    char trusted_ldap_base_dn[MAX_LINE];
-    uint16_t trusted_ldap_port;
+    char trusted_ldap_base_dn[MAX_HOST];
     char upstream_host[MAX_HOST];
     uint16_t upstream_port;
     char pool_view_key[64];
@@ -4081,10 +4080,6 @@ read_config(const char *config_file)
         {
             strncpy(config.trusted_ldap_base_dn, val, sizeof(config.trusted_ldap_base_dn)-1);
         }
-        else if (strcmp(key, "trusted-ldap-port") == 0)
-        {
-            config.trusted_ldap_port = atoi(val);
-        }
         else if (strcmp(key, "upstream-host") == 0)
         {
             strncpy(config.upstream_host, val, sizeof(config.upstream_host)-1);
@@ -4207,7 +4202,10 @@ print_config(void)
         "  trusted-port = %u\n"
         "  trusted-allowed = %s\n"
         "  upstream-host = %s\n"
-        "  upstream-port = %u\n",
+        "  upstream-port = %u\n"
+        "  trusted-operator-host = %s\n"
+        "  trusted-ldap = %s\n"
+        "  trusted-ldap-base-dn = %s\n",
         config.pool_listen,
         config.pool_port,
         config.pool_ssl_port,
@@ -4244,7 +4242,11 @@ print_config(void)
         config.trusted_port,
         display_allowed,
         config.upstream_host,
-        config.upstream_port);
+        config.upstream_port,
+        config.trusted_operator_host,
+        config.trusted_ldap,
+        config.trusted_ldap_base_dn
+        );
 }
 
 static void
@@ -4696,7 +4698,6 @@ int main(int argc, char **argv)
     strncpy(uic.trusted_operator_host, config.trusted_operator_host, sizeof(uic.trusted_operator_host)-1);
     strncpy(uic.trusted_ldap, config.trusted_ldap, sizeof(uic.trusted_ldap)-1);
     strncpy(uic.trusted_ldap_base_dn, config.trusted_ldap_base_dn, sizeof(uic.trusted_ldap_base_dn)-1);
-    uic.trusted_ldap_port = config.trusted_ldap_port;
     if (config.webui_port)
         start_web_ui(&uic);
 

@@ -104,7 +104,7 @@ endif
 
 LDPARAM += $(LDFLAGS)
 
-LIBS := lmdb pthread unbound
+LIBS := lmdb pthread unbound ldap lber
 ifeq ($(OS), Darwin)
   LIBS += c++ \
 	  boost_system-mt boost_date_time-mt boost_chrono-mt \

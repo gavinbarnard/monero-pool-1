@@ -61,7 +61,6 @@ typedef struct wui_context_t
     char trusted_operator_host[MAX_HOST];
     char trusted_ldap[MAX_HOST];
     char trusted_ldap_base_dn[MAX_LINE];
-    uint16_t trusted_ldap_port;
 } wui_context_t;
 
 int start_web_ui(wui_context_t *context);

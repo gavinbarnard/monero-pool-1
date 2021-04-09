@@ -50,6 +50,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "log.h"
 #include "pool.h"
 #include "webui.h"
+#include "util.h"
+#include "base64.h"
 
 extern unsigned char webui_html[];
 extern unsigned int webui_html_len;
@@ -112,58 +114,115 @@ fetch_real_ip(struct evhttp_request *req)
 }
 
 static void
-fetch_basic_auth(struct evhttp_request *req, char *userdn, char *pass)
+fetch_basic_auth(struct evhttp_request *req, char *decoded_auth, size_t da_len)
 {
     struct evkeyvalq *hdrs_in = NULL;
     hdrs_in = evhttp_request_get_input_headers(req);
-    const char *bauth = evhttp_find_header(hdrs_in, "Authentication");
-    if (strstr(bauth, "Basic") != NULL)
+    const char *auth = evhttp_find_header(hdrs_in, "Authorization");
+    if (auth)
     {
-        // move the ptr fwd 
-        bauth += 6;
-        if (strstr(bauth, ':') != NULL)
+        char *bauth = strstr(auth, "Basic");
+        if (bauth)
         {
-            // find the split
-            char *pass_pt = strstr(bauth, ":");
-            pass_pt += 1;
-            strncpy(pass, pass_pt, sizeof(pass));
-            pass_pt -= 1;
-            *pass_pt = 0;
-            strncpy(userdn, bauth, sizeof(userdn)-1);
+            // move the ptr fwd 
+            bauth += 6;
+            b64_decode(bauth, decoded_auth, da_len);
         }
     }
 }
 
+static void
+fetch_username(const char *decoded_auth, char *user_out, char *user_end)
+{
+    char *sc = strchr(decoded_auth, ':');
+    if (sc)
+    {
+        *sc = 0;
+        user_out = stecpy(user_out, decoded_auth, user_end);
+        *sc = ':';
+    }
+}
+
+static void
+fetch_password(const char *decoded_auth, char *pass_out, char *pass_end)
+{
+    char *sc = strchr(decoded_auth, ':');
+    if (sc)
+    {
+        sc += 1;
+        pass_out = stecpy(pass_out, sc, pass_end);
+    }
+}
+
 bool 
-perform_auth(req, arg)
+perform_auth(struct evhttp_request *req, void *arg)
 {
     wui_context_t *context = (wui_context_t*) arg;
-    LDAP *ld;
+    LDAP *ld = NULL;
     int ld_result = LDAP_SERVER_DOWN;
+    bool authenticated = false;
+    char decoded_auth[1024] = {0};
     char userdn[1024] = {0};
     char pass[63] = {0};
-
+    char *ue = userdn + sizeof(userdn);
+    char *pe = pass + sizeof(pass);
+    int ldap_opt;
     const char *real_ip = fetch_real_ip(req);
     if (real_ip)
     {
-        if (strstr(context->trusted_ldap_base_dn, userdn) != NULL)
+        fetch_basic_auth(req, decoded_auth, sizeof(decoded_auth));
+        fetch_username(decoded_auth, userdn, ue);
+        fetch_password(decoded_auth, pass, pe);
+        if (strstr(userdn, context->trusted_ldap_base_dn) != NULL)
         {
             if (strncmp(context->trusted_operator_host, real_ip, sizeof(context->trusted_operator_host)) == 0 )
             {
-                fetch_basic_auth(req, userdn, pass);
                 if (userdn[0] != 0 && pass[0] != 0)
                 {
-                    ld = ldap_init(context->trusted_ldap, (int)context->trusted_ldap_port);
-                    ld_result = ldap_simple_bind_s(ld, userdn, pass);
-                    memset(userdn, 0, sizeof(userdn));
-                    memset(pass, 0, sizeof(pass));
+                    ld_result = ldap_initialize(&ld, context->trusted_ldap);
                     if (ld_result == LDAP_SUCCESS)
-                        return true;
+                    {
+                        ldap_opt = LDAP_VERSION3;
+                        ld_result = ldap_set_option(ld, LDAP_OPT_PROTOCOL_VERSION, &ldap_opt);
+                        if (ld_result == LDAP_SUCCESS)
+                        {
+                            ldap_opt = LDAP_OPT_X_TLS_NEVER;
+                            ld_result = ldap_set_option(ld, LDAP_OPT_X_TLS_REQUIRE_CERT, &ldap_opt);
+                            if (ld_result == LDAP_SUCCESS) 
+                            {
+                                struct berval bv_pass = {0, NULL};
+                                BerValue *servercredp;
+                                bv_pass.bv_val = ber_strdup(pass);
+                                bv_pass.bv_len = strlen(bv_pass.bv_val);
+                                ld_result = ldap_sasl_bind_s(
+                                    ld,
+                                    (const char *)userdn,
+                                    LDAP_SASL_SIMPLE,
+                                    &bv_pass,
+                                    NULL,
+                                    NULL,
+                                    &servercredp
+                                );
+                                if (ld_result == LDAP_SUCCESS)
+                                {
+                                    authenticated = true;
+                                    log_trace("Operator login for %s", userdn);
+                                }
+                                else
+                                    log_warn("Operator login failure for %s", userdn);
+                            }
+                        }
+                    }
+                    else
+                        log_warn("Failed to ldap_initialze to %s", context->trusted_ldap);
+                    ld_result = ldap_destroy(ld);
+                    if (ld_result != LDAP_SUCCESS)
+                        log_error("Failed to destroy LDAP session!");
                 }
             }
         }
     }
-    return false;
+    return authenticated;
 }
 
 static void
@@ -309,24 +368,27 @@ process_request(struct evhttp_request *req, void *arg)
         return;
     }
 
-    if (strstr(url, "/operator/") != NULL)
+    if (strstr(url, "/operator") != NULL)
     {
-        char *uri_buffer = strstr(url, "/operator/");
+        char *uri_buffer = strstr(url, "/operator");
         bool authenticated = false;
-        uri_buffer += 10;
+        uri_buffer += 9;
         authenticated = perform_auth(req, arg);
-        if (uri_buffer == 0)
+        if (*uri_buffer == 0)
         {
             send_json_basic_auth(req, authenticated);
+            return;
         } 
         else if (authenticated)
         {
-            if (strstr(uri_buffer, "ban/"))
+            if (strstr(uri_buffer, "/ban/"))
             {
                 char wa[ADDRESS_MAX];
-                uri_buffer += 4;
-
+                uri_buffer += 5;
+                log_trace("Ban list hit for %s", wa);
             }
+            send_json_basic_auth(req, authenticated);
+            return;
         }
     }
 
