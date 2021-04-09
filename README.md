@@ -218,7 +218,8 @@ Example usage:
 
 Verify login:
 
-curl -u "CN=user name,DC=domain,DC=fqdn:thepassword" https://ssl.fqdn.com/operator
+    curl -u "CN=user name,DC=domain,DC=fqdn:thepassword" \
+        https://ssl.fqdn.com/operator
 
 Check if a wallet is banned:
 
