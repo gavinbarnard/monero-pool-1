@@ -32,7 +32,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef POOL_H
 #define POOL_H
 
+#define MAX_RIG_ID 32
+
 void account_hr(double *avg, const char *address);
+void account_whr(double *avg, const char *address, const char *rig_id);
 uint64_t account_balance(const char *address);
 uint64_t worker_count(const char *address);
 void worker_list(char *list_start, char *list_end, const char *address);
