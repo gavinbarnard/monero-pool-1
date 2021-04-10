@@ -97,7 +97,7 @@ send_json_worker(struct evhttp_request *req, void *arg, const char *rig_id)
             "\"miner_hashrate_stats\":["
             "%"PRIu64",%"PRIu64",%"PRIu64","
             "%"PRIu64",%"PRIu64",%"PRIu64"]"
-            "}", 
+            "}",
             (uint64_t)mh[0], (uint64_t)mh[1], (uint64_t)mh[2],
             (uint64_t)mh[3], (uint64_t)mh[4], (uint64_t)mh[5]);
     send_headers(req, "application/json");
