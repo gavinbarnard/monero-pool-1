@@ -4227,6 +4227,26 @@ sigint_handler(int sig)
     exit(0);
 }
 
+static void
+sighup_handler(int sig)
+{
+    log_trace("re-opening log file %s from signal %d", config.log_file, sig);
+    lock(log_lock);
+    close(fd_log);
+    if (config.log_file[0])
+    {
+        fd_log = fopen(config.log_file, "a");
+        if (!fd_log)
+            log_warn("Failed to open log file: %s", config.log_file);
+        else
+        {
+            setvbuf(fd_log, NULL, _IOLBF, 0);
+            log_set_fp(fd_log);
+        }        
+    }
+    unlock(log_lock);
+}
+
 static void *
 trusted_run(void *ctx)
 {
@@ -4624,6 +4644,8 @@ int main(int argc, char **argv)
     log_set_lock(log_lock);
     signal(SIGINT, sigint_handler);
     signal(SIGTERM, sigint_handler);
+    if (config.log_file[0])
+        signal(SIGHUP, sighup_handler);
     signal(SIGPIPE, SIG_IGN);
     atexit(cleanup);
 
