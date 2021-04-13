@@ -4230,21 +4230,22 @@ sigint_handler(int sig)
 static void
 sighup_handler(int sig)
 {
-    log_trace("re-opening log file %s from signal %d", config.log_file, sig);
-    lock(log_lock);
-    close(fd_log);
+    log_rotate_lock();
+    log_set_fp(NULL);
+    fclose(fd_log);
     if (config.log_file[0])
     {
         fd_log = fopen(config.log_file, "a");
         if (!fd_log)
-            log_warn("Failed to open log file: %s", config.log_file);
+            log_warn("Failed to re-open log file: %s", config.log_file);
         else
         {
             setvbuf(fd_log, NULL, _IOLBF, 0);
             log_set_fp(fd_log);
         }        
     }
-    unlock(log_lock);
+    log_rotate_unlock();
+    log_trace("re-opened log file %s from signal %d", config.log_file, sig);
 }
 
 static void *
