@@ -711,7 +711,10 @@ account_whr(double *avg, const char *address, const char *rig_id)
     while ((c = gbag_next(bag_clients, 0)) && sizeof(rig_id) != 0 )
     {
         if (strncmp(c->address, address, ADDRESS_MAX) == 0 && strncmp(c->rig_id, rig_id, MAX_RIG_ID) == 0)
+        {
             memcpy(avg, c->hr_stats.avg, sizeof(c->hr_stats.avg));
+            break;
+        }
     }
 bail:
     pthread_rwlock_unlock(&rwlock_acc);

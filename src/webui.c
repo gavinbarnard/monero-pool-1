@@ -108,7 +108,7 @@ static void
 send_json_workers(struct evhttp_request *req, void *arg)
 {
     struct evbuffer *buf = evhttp_request_get_output_buffer(req);
-    char rig_list[0x100000] = {0};
+    char rig_list[0x40000] = {0};
     char *end = rig_list + sizeof(rig_list);
     const char *wa = fetch_wa_cookie(req);
 
