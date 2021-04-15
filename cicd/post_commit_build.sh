@@ -40,6 +40,7 @@ cd $project_name
 git checkout $checkout
 make release
 release=$?
+
 rm -rf build
 make
 debug=$?
@@ -50,6 +51,11 @@ rm -rf $TMP
 if [[ $debug -eq 0 ]]  && [[ $release -eq 0 ]]; then
 	exit 0;
 else
+
+	echo "# Build failure fix the build failure in debug:$debug or release:$release non-zero is fail"
+	echo "# reset to the previous commit with the following command"
+	echo "# and update your code"
+	echo " git reset --soft HEAD~1"
 	exit 1;
 fi
 
