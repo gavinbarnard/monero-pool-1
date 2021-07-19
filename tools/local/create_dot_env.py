@@ -10,6 +10,7 @@ def read_config():
         "wallet_rpc_port",
         "wallet_file",
         "wallet_password",
+        "nettype",
         "test_pool_port",
         "test_pool_webui_port",
         "test_pool_wallet_address",

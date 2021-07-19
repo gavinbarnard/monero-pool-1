@@ -99,6 +99,15 @@ echo cull-shares = 10 >> $test_build_dir/pool.conf
 echo "creating monero-wallet-rpc config file"
 
 echo > $test_build_dir/monero_wallet_rpc.conf 
+if [ -z "$nettype" ]; then
+    echo "nettype not set"
+    exit 1
+fi
+if [ $nettype == "stagenet" ]; then
+    echo stagenet=1 >> $test_build_dir/monero_wallet_rpc.conf
+elif [ $nettype == "testnet" ]; then
+    echo testnet=1 >> $test_build_dir/monero_wallet_rpc.conf
+fi
 echo log-file=$test_build_dir/test_monero_wallet_rpc.log >> $test_build_dir/monero_wallet_rpc.conf
 echo disable-rpc-login=1 >> $test_build_dir/monero_wallet_rpc.conf
 echo daemon-address=$monerod_ip:$monerod_rpc_port >> $test_build_dir/monero_wallet_rpc.conf
@@ -132,7 +141,7 @@ while true; do
     if [ $? -eq 0 ]; then
         break
     fi
-    sleep 1
+    sleep 5
     retry=$[$retry + 1]
     if [ $retry -gt $max_retry ]; then
         echo "monero-wallet-rpc api did not start responding";
@@ -160,7 +169,7 @@ while true; do
 	if [ $? -eq 0 ]; then
 		break
 	fi
-	sleep 1
+	sleep 5
 	retry=$[retry + !]
 	if [ $retry -gt $max_retry ]; then
 		echo "monero-pool webui services not responding"
