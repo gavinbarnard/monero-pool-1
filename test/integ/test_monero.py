@@ -11,4 +11,4 @@ def test_pool_wallet_rpc():
     port=ENV['wallet_rpc_port']
     w = Wallet(JSONRPCWallet(host=host, port=port))
     assert w.address() == ENV['test_pool_wallet_address']
-    assert type(w.balance()) == Decimal
+    assert isinstance(w.balance(), Decimal)

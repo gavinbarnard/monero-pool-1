@@ -34,12 +34,12 @@ def test_webui_stats():
     ]
     for key in int_list:
         assert key in data.keys()
-        assert type(data[key]) == int
+        assert isinstance(data[key], int)
     assert 'miner_hashrate_stats' in data.keys()
     assert type(data['miner_hashrate_stats']) == list
     for key in float_list:
         assert key in data.keys()
-        assert type(data[key]) == float
+        assert isinstance(data[key], float)
     assert data['miner_hashrate_stats'] == [0,0,0,0,0,0]
 
 def test_webui_stats_with_wa():

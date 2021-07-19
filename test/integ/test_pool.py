@@ -39,14 +39,14 @@ def test_miner_connect():
     key_check = ['id', 'jsonrpc', 'error', 'result']
     for key in key_check:
         assert key in json_object.keys()
-    assert type(json_object['result']) == dict
-    assert type(json_object['id']) == int
+    assert isinstance(json_object['result'], dict)
+    assert isinstance(json_object['id'], int)
     assert json_object['jsonrpc'] == "2.0"
     assert json_object['error'] == None
     key_check = ['id', 'job', 'status']
     for key in key_check:
         assert key in json_object['result'].keys()
-    assert type(json_object['result']['job']) == dict
+    assert isinstance(json_object['result']['job'], dict)
     key_check = ['blob', 'job_id', 'target', 'height', 'seed_hash', 'next_seed_hash']
     for key in key_check:
         assert key in json_object['result']['job'].keys()

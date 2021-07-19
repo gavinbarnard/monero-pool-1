@@ -34,6 +34,11 @@ def write_dot_env(config_answers):
     fh.close()
 
 if __name__ == "__main__":
+    print("!!! PLEASE READ !!!")
+    print("This expects you to have a running mainnet/stagenet/testnet monerod")
+    print("and the monero-wallet-rpc and xmrig commands available in PATH")
+    print("You will also need to create wallets for the enviroments to use")
+    print("!!!!!!!!!!!!!!!!!!!")
     if exists(".env"):
         print("--- You have an existing environment ---")
         with open(".env", 'r') as fh:
