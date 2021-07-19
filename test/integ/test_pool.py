@@ -71,7 +71,7 @@ def test_actual_mining():
     pid_fh = open(pid_file_path, 'w')
     pid_fh.write(str(pid))
     pid_fh.close()
-    sleep(15)
+    sleep(60)
     uri = "http://localhost:{}/stats".format(webui_port)
     cookies = {'wa': wallet}
     r = requests.get(uri, cookies=cookies)
