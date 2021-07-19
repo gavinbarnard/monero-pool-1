@@ -154,5 +154,22 @@ if [ $mp_process -ne 1 ]; then
     exit 1
 fi   
 
+retry=0
+while true; do
+	curl -s http://127.0.0.1:$test_pool_webui_port/stats > /dev/null
+	if [ $? -eq 0 ]; then
+		break
+	fi
+	sleep 1
+	retry=$[retry + !]
+	if [ $retry -gt $max_retry ]; then
+		echo "monero-pool webui services not responding"
+		echo "please review $test_build_dir/test_pool.log"
+		kill $rpc_pid
+		kill $mp_pid
+		exit 1
+	fi
+done
+
 echo "Pool launch success"
 echo "Pool pid $mp_pid wallet_pid $rpc_pid"
