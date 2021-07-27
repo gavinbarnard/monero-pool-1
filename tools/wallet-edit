@@ -31,9 +31,13 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
+from sys import version
 import lmdb
 from ctypes import *
-import cmd
+from cmd import Cmd
+
+if int(version[0]) == 2:
+    from struct import pack
 
 ADDRESS_MAX = 128
 
@@ -49,13 +53,16 @@ class db:
     def get_wallet(self, address):
         txn = self.env.begin(db=self.db, write=False)
         cur = txn.cursor()
-        baddr = bytes(address, 'utf-8')
+        if int(version[0]) >= 3:
+            baddr = bytes(address, 'utf-8')
+        elif int(version[0]) == 2:
+            baddr = bytes(address)
         dif = ADDRESS_MAX - len(baddr)
         baddr += b"\0" * dif
         amount = 0
         if cur.get(baddr):
             k, v = cur.item()
-            amount = c_longlong.from_buffer_copy(v).value
+            amount = c_longlong.from_buffer_copy(v).value  / 1e12
         else:
             amount = -1
         cur.close()
@@ -69,17 +76,66 @@ class db:
         wallets = []
         while k:
             addr, v = cur.item()
-            addr = str(addr, 'utf-8').strip()
+            if int(version[0]) >= 3:
+                addr = str(addr, 'utf-8').strip()
+            elif int(version[0]) == 2:
+                addr = str(addr).strip()
             wallets.append(addr)
             k = cur.next()
         return wallets
 
-class walletEditCli(cmd.Cmd):
+    def set_wallet_value(self, address, value):
+        txn = self.env.begin(db=self.db, write=True)
+        cur = txn.cursor()
+        if int(version[0]) >= 3:
+            baddr = bytes(address, 'utf-8')
+        elif int(version[0]) == 2:
+            baddr = bytes(address)
+        dif = ADDRESS_MAX - len(baddr)
+        baddr += b"\0" * dif
+        value = float(value)
+        amount = int(value * 1e12)
+        if int(version[0]) >= 3:
+            amount = amount.to_bytes(sizeof(c_longlong), byteorder='little')
+        elif int(version[0]) == 2:
+            amount = pack("<q", amount)
+        rc = cur.get(baddr)
+        if rc:
+            cur.put(baddr, amount, overwrite=True, append=False)
+        else:
+            cur.put(baddr, amount, overwrite=False, append=True)
+        cur.close()
+        txn.commit()
+        self.env.sync()
+
+    def del_wallet(self, address):
+        a, v = self.get_wallet(address)
+        print("{}: {}".format(a, v))
+        txn = self.env.begin(db=self.db, write=True)
+        cur = txn.cursor()
+        if int(version[0]) >= 3:
+            baddr = bytes(address, 'utf-8')
+        elif int(version[0]) == 2:
+            baddr = bytes(address)
+        dif = ADDRESS_MAX - len(baddr)
+        baddr += b"\0" * dif
+        if cur.get(baddr):
+            rc = cur.delete(baddr)
+            if rc:
+                print("Successfully deleted {}".format(address))
+            else:
+                print("There was an issue deleting {}".format(address))
+        cur.close()
+        txn.commit()
+        self.env.sync()
+
+
+class walletEditCli(Cmd):
     intro = 'Backup your DB before any edit\nTest on a staging server first\nYou are responsible for any dataloss'
     prompt = "(wallet-edit) "
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        Cmd.__init__(self, *args, **kwargs)
         self.database = db()
 
     def do_get(self, arg):
@@ -90,6 +146,20 @@ class walletEditCli(cmd.Cmd):
         wallets = self.database.list_wallets()
         for w in wallets:
             print(w)
+    
+    def do_set(self, arg):
+        addr, amount = arg.split(" ")
+        if addr and amount:
+            try:
+                amount = float(amount)
+            except ValueError:
+                print("Value is not a float")
+                return
+            if len(addr) <= ADDRESS_MAX:
+                self.database.set_wallet_value(addr, amount)
+    
+    def do_del(self, arg):
+        self.database.del_wallet(arg)
 
     def do_exit(self, arg):
         return True
