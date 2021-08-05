@@ -33,8 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from sys import version
 import lmdb
+from os import environ
 from ctypes import *
 from cmd import Cmd
+from argparse import ArgumentParser
 
 if int(version[0]) == 2:
     from struct import pack
@@ -42,9 +44,9 @@ if int(version[0]) == 2:
 ADDRESS_MAX = 128
 
 class db:
-    def __init__(self):
-        self.env = lmdb.open("/tmp/testbuild/data-dir", max_dbs=1)
-        self.db = self.env.open_db("balance".encode())
+    def __init__(self, db_path="{}/pool-dd".format(environ['HOME'])):
+        self.env = lmdb.open(db_path, max_dbs=1)
+        self.db = self.env.open_db("balance".encode(), dupfixed=False)
 
     def __del__(self):
 
@@ -100,10 +102,14 @@ class db:
         elif int(version[0]) == 2:
             amount = pack("<q", amount)
         rc = cur.get(baddr)
-        if rc:
-            cur.put(baddr, amount, overwrite=True, append=False)
+        print(rc)
+        if rc and rc != lmdb.NotFoundError:
+            print("staying ALIIIIIIIVE")
+            rc = cur.put(baddr, amount, overwrite=True, append=False, dupdata=False)
         else:
-            cur.put(baddr, amount, overwrite=False, append=True)
+            print("Why am I hereeeeeeeee?????")
+            rc = cur.put(baddr, amount, overwrite=True, dupdata=False)
+        print(rc)
         cur.close()
         txn.commit()
         self.env.sync()
@@ -136,7 +142,10 @@ class walletEditCli(Cmd):
 
     def __init__(self, *args, **kwargs):
         Cmd.__init__(self, *args, **kwargs)
-        self.database = db()
+        ap = ArgumentParser()
+        ap.add_argument("db_path", action="store", type=str, default="{}/pool-dd".format(environ['HOME']))
+        shell_args = ap.parse_args()
+        self.database = db(db_path=shell_args.db_path)
 
     def do_get(self, arg):
         addr, amount =  self.database.get_wallet(arg)
