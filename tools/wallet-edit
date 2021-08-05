@@ -102,14 +102,14 @@ class db:
         elif int(version[0]) == 2:
             amount = pack("<q", amount)
         rc = cur.get(baddr)
-        print(rc)
         if rc and rc != lmdb.NotFoundError:
-            print("staying ALIIIIIIIVE")
-            rc = cur.put(baddr, amount, overwrite=True, append=False, dupdata=False)
+            rc = cur.put(baddr,
+                         amount,
+                         overwrite=True,
+                         append=False,
+                         dupdata=False)
         else:
-            print("Why am I hereeeeeeeee?????")
             rc = cur.put(baddr, amount, overwrite=True, dupdata=False)
-        print(rc)
         cur.close()
         txn.commit()
         self.env.sync()
@@ -137,26 +137,45 @@ class db:
 
 
 class walletEditCli(Cmd):
-    intro = 'Backup your DB before any edit\nTest on a staging server first\nYou are responsible for any dataloss'
+    intro = '''Backup your DB before any edit\nTest on a staging server first\n
+    You are responsible for any dataloss'''
     prompt = "(wallet-edit) "
 
     def __init__(self, *args, **kwargs):
         Cmd.__init__(self, *args, **kwargs)
         ap = ArgumentParser()
-        ap.add_argument("db_path", action="store", type=str, default="{}/pool-dd".format(environ['HOME']))
+        ap.add_argument("db_path",
+                        action="store",
+                        type=str,
+                        default="{}/pool-dd".format(environ['HOME']))
         shell_args = ap.parse_args()
         self.database = db(db_path=shell_args.db_path)
 
     def do_get(self, arg):
+        '''
+        get <wallet>
+
+        returns the wallet and pending balance or -1 on not found
+        '''
         addr, amount =  self.database.get_wallet(arg)
         print("{}: {}".format(addr, amount))
 
     def do_list(self, arg):
+        '''
+        list
+        
+        returns all wallets in db
+        '''
         wallets = self.database.list_wallets()
         for w in wallets:
             print(w)
     
     def do_set(self, arg):
+        '''
+        set <wallet> <float.value>
+        
+        sets the wallet to a specific value (USE WITH CAUTION / TAKE BACKUPS)
+        '''
         addr, amount = arg.split(" ")
         if addr and amount:
             try:
@@ -168,9 +187,31 @@ class walletEditCli(Cmd):
                 self.database.set_wallet_value(addr, amount)
     
     def do_del(self, arg):
+        '''
+        del <wallet>
+        
+        deletes a wallet (USE WITH CAUTION / TAKE BACKUPS)
+        '''
         self.database.del_wallet(arg)
 
+    def do_backups(self, arg):
+        '''
+        backups
+        
+        no, you make the backups, not me
+
+        while pool offline:
+        \ttar zcvf /path/tobackups.tgz /path/to/data-dir
+        '''
+        print("You make the backups not me see help backups")
+        return
+
     def do_exit(self, arg):
+        '''
+        exit
+        
+        exits the cli
+        '''
         return True
         
 
